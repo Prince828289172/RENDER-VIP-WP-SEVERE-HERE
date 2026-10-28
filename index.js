@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import chalk from 'chalk';
 import multer from 'multer';
-import { makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, DisconnectReason, Browsers, fetchLatestWaWebVersion } from '@whiskeysockets/baileys';
+import { makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, DisconnectReason, Browsers, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -266,8 +266,9 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
       if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-      // 👈 YAHAN CHANGE KIYA HAI (fetchLatestBaileysVersion -> fetchLatestWaWebVersion)
-      const { version } = await fetchLatestWaWebVersion();
+      
+      // 👈 YAHAN CHANGE KIYA HAI (Stable version wapas)
+      const { version } = await fetchLatestBaileysVersion();
 
       if (royalActiveSockets[uniqueKey]) {
         try {
