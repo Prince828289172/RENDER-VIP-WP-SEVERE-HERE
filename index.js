@@ -15,6 +15,8 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { Boom } from '@hapi/boom';
 import cors from 'cors';
+import archiver from 'archiver'; // 👈 NEW
+import AdmZip from 'adm-zip';      // 👈 NEW
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,6 +46,71 @@ if (!fs.existsSync('uploads')) fs.mkdirSync('uploads', { recursive: true });
 
 // ===== ADMIN PASSWORD =====
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Prince890';
+
+// ===== GITHUB AUTO-BACKUP SYSTEM ===== (👈 NEW BLOCK)
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_REPO = process.env.GITHUB_BACKUP_REPO;
+const GITHUB_BACKUP_FILE = 'session_backup.zip';
+
+async function downloadBackupFromGitHub() {
+  if (!GITHUB_TOKEN || !GITHUB_REPO) return;
+  try {
+    console.log(chalk.cyan('📥 Checking for backup on GitHub...'));
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_BACKUP_FILE}`, {
+      headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3.raw' }
+    });
+    if (res.ok) {
+      const buffer = await res.arrayBuffer();
+      fs.writeFileSync('./temp_backup.zip', Buffer.from(buffer));
+      const zip = new AdmZip('./temp_backup.zip');
+      zip.extractAllTo(SESSION_DIR, true);
+      fs.unlinkSync('./temp_backup.zip');
+      console.log(chalk.green('✅ Backup restored from GitHub!'));
+    } else {
+      console.log(chalk.yellow('⚠️ No backup found on GitHub (Fresh Start).'));
+    }
+  } catch (e) { console.error(chalk.red('Download error:'), e.message); }
+}
+
+async function uploadBackupToGitHub() {
+  if (!GITHUB_TOKEN || !GITHUB_REPO) return;
+  if (!fs.existsSync(SESSION_DIR) || fs.readdirSync(SESSION_DIR).length === 0) return;
+
+  try {
+    const archive = archiver('zip');
+    const chunks = [];
+    archive.on('data', chunk => chunks.push(chunk));
+    archive.on('end', async () => {
+      const buffer = Buffer.concat(chunks);
+      const base64Content = buffer.toString('base64');
+
+      let sha = null;
+      const getRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_BACKUP_FILE}`, {
+        headers: { Authorization: `token ${GITHUB_TOKEN}` }
+      });
+      if (getRes.ok) {
+        const data = await getRes.json();
+        sha = data.sha;
+      }
+
+      const body = {
+        message: 'Auto-backup WhatsApp session',
+        content: base64Content,
+        ...(sha && { sha })
+      };
+
+      const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_BACKUP_FILE}`, {
+        method: 'PUT',
+        headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (putRes.ok) console.log(chalk.green('☁️ Session auto-backed up to GitHub!'));
+    });
+    archive.directory(SESSION_DIR, false);
+    archive.finalize();
+  } catch (e) { console.error(chalk.red('Upload error:'), e.message); }
+}
 
 // ===== GLOBAL STATE =====
 const royalHeroesSessions = {};
@@ -324,7 +391,11 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
         }
       });
 
-      RoyalKing.ev.on('creds.update', saveCreds);
+      // 👈 NEW: Login hote hi backup trigger karega
+      RoyalKing.ev.on('creds.update', async () => {
+        await saveCreds();
+        uploadBackupToGitHub(); 
+      });
 
     } catch (error) {
       console.error(chalk.red(`❌ Connection Error: ${error.message}`));
@@ -546,10 +617,16 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(chalk.green(`✅ Server running on port ${PORT}`));
   console.log(chalk.cyan(`💾 Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`));
 
+  // 👈 NEW: Server start hote hi GitHub se backup uthayega
+  await downloadBackupFromGitHub(); 
+
   await royalRestoreSessions();
 
   cleanupOldSessions();
   setInterval(cleanupOldSessions, 60 * 60 * 1000);
+
+  // 👈 NEW: Har 10 minute mein GitHub par backup jayega
+  setInterval(uploadBackupToGitHub, 10 * 60 * 1000); 
 
   setInterval(() => {
     for (const key in royalHeroesSessions) {
