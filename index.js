@@ -266,7 +266,8 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
       if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-      const { version } = await fetchLatestBaileysVersion();
+      // 👈 YAHAN CHANGE KIYA HAI (fetchLatestBaileysVersion -> fetchLatestWaWebVersion)
+      const { version } = await fetchLatestWaWebVersion();
 
       if (royalActiveSockets[uniqueKey]) {
         try {
