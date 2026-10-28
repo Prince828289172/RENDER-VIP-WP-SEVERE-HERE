@@ -2,13 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import chalk from 'chalk';
 import multer from 'multer';
-import makeWASocket, {
-  useMultiFileAuthState,
-  makeCacheableSignalKeyStore,
-  DisconnectReason,
-  Browsers,
-  fetchLatestBaileysVersion
-} from '@whiskeysockets/baileys';
+import { makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, DisconnectReason, Browsers, fetchLatestWaWebVersion } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import path from 'path';
 import { fileURLToPath } from 'url';
