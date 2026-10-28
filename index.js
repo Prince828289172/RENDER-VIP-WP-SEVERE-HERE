@@ -9,8 +9,8 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { Boom } from '@hapi/boom';
 import cors from 'cors';
-import archiver from 'archiver'; // 👈 NEW
-import AdmZip from 'adm-zip';      // 👈 NEW
+import archiver from 'archiver';
+import AdmZip from 'adm-zip';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,13 +23,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// ===== RAILWAY VOLUME PATHS =====
 const VOLUME_ROOT = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(process.cwd(), 'session');
-const SESSION_DIR = VOLUME_ROOT.endsWith('session')
-  ? VOLUME_ROOT
-  : path.join(VOLUME_ROOT, 'session');
-
-// 🔥 FIX: running_sessions.json ab SESSION_DIR ke ANDAR hai
+const SESSION_DIR = VOLUME_ROOT.endsWith('session') ? VOLUME_ROOT : path.join(VOLUME_ROOT, 'session');
 const SESSION_FILE = path.join(SESSION_DIR, 'running_sessions.json');
 
 console.log(chalk.cyan(`📁 Session dir: ${SESSION_DIR}`));
@@ -38,10 +33,9 @@ console.log(chalk.cyan(`📁 Session file: ${SESSION_FILE}`));
 if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads', { recursive: true });
 
-// ===== ADMIN PASSWORD =====
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Prince890';
 
-// ===== GITHUB AUTO-BACKUP SYSTEM ===== (👈 NEW BLOCK)
+// ===== GITHUB AUTO-BACKUP SYSTEM =====
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_BACKUP_REPO;
 const GITHUB_BACKUP_FILE = 'session_backup.zip';
@@ -106,7 +100,6 @@ async function uploadBackupToGitHub() {
   } catch (e) { console.error(chalk.red('Upload error:'), e.message); }
 }
 
-// ===== GLOBAL STATE =====
 const royalHeroesSessions = {};
 const royalStopFlags = {};
 const royalActiveSockets = {};
@@ -122,13 +115,10 @@ const RoyalSessionState = {
   STOPPED: 'STOPPED'
 };
 
-// ===== CLEANUP OLD SESSIONS =====
 const cleanupOldSessions = () => {
   try {
     if (!fs.existsSync(SESSION_DIR)) return;
     const activeKeys = Object.keys(royalHeroesSessions);
-
-    // 🔥 FIX: Agar koi session load nahi hua to cleanup mat chalao
     if (activeKeys.length === 0) {
       console.log(chalk.gray('⏭️ No active sessions, skipping cleanup'));
       return;
@@ -178,7 +168,6 @@ const royalSaveSessions = () => {
 
 const royalGenerateUniqueKey = () => crypto.randomBytes(16).toString('hex');
 
-// ===== MESSAGING ENGINE =====
 const royalStartMessaging = (RoyalKing, uniqueKey, target, hatersName, messages, speed) => {
   if (royalStopFlags[uniqueKey]?.timeout) {
     clearTimeout(royalStopFlags[uniqueKey].timeout);
@@ -249,7 +238,6 @@ const royalStartMessaging = (RoyalKing, uniqueKey, target, hatersName, messages,
   console.log(chalk.cyan(`📨 Messaging started for ${uniqueKey.substring(0, 8)} (every ${baseInterval / 1000}s)`));
 };
 
-// ===== CONNECT + LOGIN =====
 const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = null) => {
   const sessionPath = path.join(SESSION_DIR, uniqueKey);
   let pairingCodeSent = false;
@@ -266,8 +254,6 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
       if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-      
-      // 👈 YAHAN CHANGE KIYA HAI (Stable version wapas)
       const { version } = await fetchLatestBaileysVersion();
 
       if (royalActiveSockets[uniqueKey]) {
@@ -281,7 +267,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
       const RoyalKing = makeWASocket({
         version,
         logger: pino({ level: 'fatal' }),
-        browser: Browsers.ubuntu('Chrome'),
+        browser: ['Ubuntu', 'Chrome', ''], // ✅ canonical browser label (Fix #1)
         auth: {
           creds: state.creds,
           keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' }))
@@ -297,23 +283,24 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
 
       royalActiveSockets[uniqueKey] = RoyalKing;
 
-      if (!RoyalKing.authState.creds.registered && sendPairingCode && royalConnectionStates[uniqueKey] !== RoyalSessionState.PAIRED) {
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        try {
-          const cleanedNumber = phoneNumber.replace(/[^0-9]/g, '');
-          const code = await RoyalKing.requestPairingCode(cleanedNumber);
-          const pairingCode = code?.match(/.{1,4}/g)?.join('-') || code;
-          if (!pairingCodeSent) {
-            pairingCodeSent = true;
-            sendPairingCode(pairingCode, false);
-          }
-        } catch (error) {
-          console.error(chalk.red(`❌ Pairing error: ${error.message}`));
-        }
-      }
+      // ❌ Purana block hata diya (jo socket banne ke 3s baad code maangta tha)
 
       RoyalKing.ev.on("connection.update", async (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update; // ✅ qr event destructure kiya (Fix #2)
+
+        // ✅ Naya block: sirf qr event par pairing code request karo
+        if (qr && !RoyalKing.authState.creds.registered && sendPairingCode && !pairingCodeSent) {
+          pairingCodeSent = true;
+          try {
+            const cleanedNumber = phoneNumber.replace(/[^0-9]/g, '');
+            const code = await RoyalKing.requestPairingCode(cleanedNumber);
+            const pairingCode = code?.match(/.{1,4}/g)?.join('-') || code;
+            sendPairingCode(pairingCode, false);
+          } catch (error) {
+            console.error(chalk.red(`❌ Pairing error: ${error.message}`));
+            pairingCodeSent = false; // fail hone par dobara try karne de
+          }
+        }
 
         if (connection === "open") {
           console.log(chalk.green(`\n✅ WhatsApp Connected! (${phoneNumber}) ✅\n`));
@@ -387,7 +374,6 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
         }
       });
 
-      // 👈 NEW: Login hote hi backup trigger karega
       RoyalKing.ev.on('creds.update', async () => {
         await saveCreds();
         uploadBackupToGitHub(); 
@@ -404,7 +390,6 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
   await royalStartConnection();
 };
 
-// ===== RESTORE SESSIONS =====
 const royalRestoreSessions = async () => {
   if (fs.existsSync(SESSION_FILE)) {
     try {
@@ -428,7 +413,6 @@ const royalRestoreSessions = async () => {
   }
 };
 
-// ===== ROUTES =====
 app.post('/login', async (req, res) => {
   try {
     let { phoneNumber } = req.body;
@@ -542,7 +526,6 @@ app.post('/stop', async (req, res) => {
   res.json({ success: true, message: 'Stopped and logged out' });
 });
 
-// ===== ADMIN ENDPOINTS =====
 app.post('/admin/sessions', (req, res) => {
   const { password } = req.body;
   if (password !== ADMIN_PASSWORD) {
@@ -588,7 +571,6 @@ app.post('/admin/reconnect', async (req, res) => {
   res.json({ success: true, message: 'Reconnect trigger kiya, 10-30s me live hoga' });
 });
 
-// ===== HEALTH =====
 app.get('/health', (req, res) => {
   res.json({
     status: 'alive',
@@ -608,20 +590,16 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ===== SERVER START =====
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(chalk.green(`✅ Server running on port ${PORT}`));
   console.log(chalk.cyan(`💾 Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`));
 
-  // 👈 NEW: Server start hote hi GitHub se backup uthayega
   await downloadBackupFromGitHub(); 
-
   await royalRestoreSessions();
 
   cleanupOldSessions();
   setInterval(cleanupOldSessions, 60 * 60 * 1000);
 
-  // 👈 NEW: Har 10 minute mein GitHub par backup jayega
   setInterval(uploadBackupToGitHub, 10 * 60 * 1000); 
 
   setInterval(() => {
