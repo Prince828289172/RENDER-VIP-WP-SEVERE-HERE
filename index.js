@@ -2,7 +2,13 @@ import express from 'express';
 import fs from 'fs';
 import chalk from 'chalk';
 import multer from 'multer';
-import { makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, DisconnectReason, Browsers, fetchLatestWaWebVersion } from '@whiskeysockets/baileys';
+import makeWASocket, { 
+  useMultiFileAuthState, 
+  makeCacheableSignalKeyStore, 
+  DisconnectReason, 
+  Browsers, 
+  fetchLatestBaileysVersion 
+} from '@whiskeysockets/baileys';
 import pino from 'pino';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -30,7 +36,6 @@ const SESSION_DIR = VOLUME_ROOT.endsWith('session')
   ? VOLUME_ROOT
   : path.join(VOLUME_ROOT, 'session');
 
-// 🔥 FIX: running_sessions.json ab SESSION_DIR ke ANDAR hai
 const SESSION_FILE = path.join(SESSION_DIR, 'running_sessions.json');
 
 console.log(chalk.cyan(`📁 Session dir: ${SESSION_DIR}`));
@@ -178,7 +183,7 @@ const royalSaveSessions = () => {
 
 const royalGenerateUniqueKey = () => crypto.randomBytes(16).toString('hex');
 
-// ===== MESSAGING ENGINE =====
+// ===== MESSAGING ENGINE (Exact Original) =====
 const royalStartMessaging = (RoyalKing, uniqueKey, target, hatersName, messages, speed) => {
   if (royalStopFlags[uniqueKey]?.timeout) {
     clearTimeout(royalStopFlags[uniqueKey].timeout);
@@ -249,7 +254,7 @@ const royalStartMessaging = (RoyalKing, uniqueKey, target, hatersName, messages,
   console.log(chalk.cyan(`📨 Messaging started for ${uniqueKey.substring(0, 8)} (every ${baseInterval / 1000}s)`));
 };
 
-// ===== CONNECT + LOGIN =====
+// ===== CONNECT + LOGIN (QR Modified) =====
 const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null) => {
   const sessionPath = path.join(SESSION_DIR, uniqueKey);
   let qrSent = false;
@@ -266,8 +271,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null
       if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-      // 🔥 FIX: WaWeb version for Render
-      const { version } = await fetchLatestWaWebVersion();
+      const { version } = await fetchLatestBaileysVersion();
 
       if (royalActiveSockets[uniqueKey]) {
         try {
@@ -280,7 +284,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null
       const RoyalKing = makeWASocket({
         version,
         logger: pino({ level: 'fatal' }),
-        browser: ['Ubuntu', 'Chrome', ''], // 🔥 FIX: Canonical Browser Label
+        browser: Browsers.ubuntu('Chrome'),
         auth: {
           creds: state.creds,
           keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' }))
@@ -299,7 +303,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null
       RoyalKing.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        // ✅ QR CODE LOGIC
+        // 🔥 QR Code Logic added here
         if (qr && !qrSent && sendLoginData) {
           qrSent = true;
           try {
@@ -383,6 +387,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null
         }
       });
 
+      // 🔥 Backup triggered here
       RoyalKing.ev.on('creds.update', async () => {
         await saveCreds();
         uploadBackupToGitHub(); 
@@ -439,7 +444,6 @@ app.post('/login', async (req, res) => {
       if (errorMsg) res.json({ success: false, message: 'Error', error: errorMsg, uniqueKey });
       else if (isConnected) res.json({ success: true, message: 'Connected!', connected: true, uniqueKey });
       else if (isQr) res.json({ success: true, message: 'QR Code', qrImage: data, uniqueKey });
-      else res.json({ success: true, message: 'Pairing code', pairingCode: data, uniqueKey });
     };
 
     await royalConnectAndLogin(phoneNumber, uniqueKey, sendLoginData);
@@ -614,7 +618,7 @@ app.listen(PORT, '0.0.0.0', async () => {
 
   cleanupOldSessions();
   setInterval(cleanupOldSessions, 60 * 60 * 1000);
-  
+
   setInterval(uploadBackupToGitHub, 10 * 60 * 1000); 
 
   setInterval(() => {
