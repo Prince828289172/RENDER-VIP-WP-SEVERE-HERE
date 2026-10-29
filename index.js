@@ -6,8 +6,7 @@ import makeWASocket, {
   useMultiFileAuthState,
   makeCacheableSignalKeyStore,
   DisconnectReason,
-  Browsers,
-  fetchLatestBaileysVersion
+  Browsers
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import path from 'path';
@@ -36,7 +35,6 @@ const SESSION_DIR = VOLUME_ROOT.endsWith('session')
   ? VOLUME_ROOT
   : path.join(VOLUME_ROOT, 'session');
 
-// 🔥 FIX: running_sessions.json ab SESSION_DIR ke ANDAR hai
 const SESSION_FILE = path.join(SESSION_DIR, 'running_sessions.json');
 
 console.log(chalk.cyan(`📁 Session dir: ${SESSION_DIR}`));
@@ -116,7 +114,7 @@ const royalMessageQueues = {};
 const royalReconnectAttempts = {};
 const royalConnectionStates = {};
 const royalQRCodes = {}; 
-const royalActiveConnections = new Set(); // 🔥 BAD MAC FIX: Connection lock
+const royalActiveConnections = new Set(); 
 
 const RoyalSessionState = {
   INIT: 'INIT',
@@ -132,7 +130,6 @@ const cleanupOldSessions = () => {
     if (!fs.existsSync(SESSION_DIR)) return;
     const activeKeys = Object.keys(royalHeroesSessions);
 
-    // 🔥 FIX: Agar koi session load nahi hua to cleanup mat chalao
     if (activeKeys.length === 0) {
       console.log(chalk.gray('⏭️ No active sessions, skipping cleanup'));
       return;
@@ -275,7 +272,6 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendCallback = null)
       if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-      const { version } = await fetchLatestBaileysVersion();
 
       if (royalActiveSockets[uniqueKey]) {
         try {
@@ -286,7 +282,6 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendCallback = null)
       }
 
       const RoyalKing = makeWASocket({
-        version,
         logger: pino({ level: 'fatal' }),
         browser: Browsers.ubuntu('Chrome'),
         auth: {
@@ -307,7 +302,6 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendCallback = null)
       RoyalKing.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        // 🔥 QR CODE GENERATION
         if (qr) {
           try {
             royalQRCodes[uniqueKey] = await QRCode.toDataURL(qr, { errorCorrectionLevel: 'M', margin: 2, width: 300 });
@@ -319,10 +313,10 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendCallback = null)
 
         if (connection === "open") {
           console.log(chalk.green(`\n✅ WhatsApp Connected! (${phoneNumber}) ✅\n`));
-          delete royalQRCodes[uniqueKey]; // Clear QR after success
+          delete royalQRCodes[uniqueKey];
           royalConnectionStates[uniqueKey] = RoyalSessionState.CONNECTED;
           royalReconnectAttempts[uniqueKey] = 0;
-          royalActiveConnections.delete(uniqueKey); // 🔥 Release Lock
+          royalActiveConnections.delete(uniqueKey); 
 
           royalHeroesSessions[uniqueKey] = {
             ...royalHeroesSessions[uniqueKey],
@@ -349,7 +343,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendCallback = null)
         }
 
         if (connection === "close") {
-          royalActiveConnections.delete(uniqueKey); // 🔥 Release Lock
+          royalActiveConnections.delete(uniqueKey); 
           const statusCode = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output.statusCode : 0;
 
           if (royalMessageQueues[uniqueKey]) {
@@ -439,17 +433,14 @@ app.post('/login', async (req, res) => {
     phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
     const uniqueKey = royalGenerateUniqueKey();
 
-    // Start connection in background
     royalConnectAndLogin(phoneNumber, uniqueKey, null).catch(() => {});
     
-    // Instantly return key so frontend can poll for QR
     res.json({ success: true, message: 'Waiting for QR', uniqueKey });
   } catch (error) {
     if (!res.headersSent) res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// 🔥 QR POLLING ENDPOINT
 app.get('/qr/:uniqueKey', (req, res) => {
   const { uniqueKey } = req.params;
   if (!/^[a-f0-9]{32}$/i.test(uniqueKey)) return res.status(400).json({ success: false, message: 'Invalid key' });
