@@ -6,7 +6,8 @@ import makeWASocket, {
   useMultiFileAuthState,
   makeCacheableSignalKeyStore,
   DisconnectReason,
-  Browsers
+  Browsers,
+  fetchLatestWaWebVersion // 🔥 QR Fix: Latest version fetch karne ke liye
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import path from 'path';
@@ -272,6 +273,9 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendCallback = null)
       if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+      
+      // 🔥 FIX: Fetching latest Web version to prevent QR timeout
+      const { version } = await fetchLatestWaWebVersion(); 
 
       if (royalActiveSockets[uniqueKey]) {
         try {
@@ -282,6 +286,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendCallback = null)
       }
 
       const RoyalKing = makeWASocket({
+        version, // 👈 Using the latest version
         logger: pino({ level: 'fatal' }),
         browser: Browsers.ubuntu('Chrome'),
         auth: {
