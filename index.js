@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import chalk from 'chalk';
 import multer from 'multer';
-import { makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, DisconnectReason, Browsers, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
+import { makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, DisconnectReason, Browsers, fetchLatestWaWebVersion } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -11,6 +11,7 @@ import { Boom } from '@hapi/boom';
 import cors from 'cors';
 import archiver from 'archiver';
 import AdmZip from 'adm-zip';
+import QRCode from 'qrcode'; // 👈 NAYA IMPORT
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -240,7 +241,6 @@ const royalStartMessaging = (RoyalKing, uniqueKey, target, hatersName, messages,
 
 const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = null) => {
   const sessionPath = path.join(SESSION_DIR, uniqueKey);
-  let pairingCodeSent = false;
 
   if (!royalConnectionStates[uniqueKey]) royalConnectionStates[uniqueKey] = RoyalSessionState.INIT;
 
@@ -254,7 +254,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
       if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-      const { version } = await fetchLatestBaileysVersion();
+      const { version } = await fetchLatestWaWebVersion();
 
       if (royalActiveSockets[uniqueKey]) {
         try {
@@ -267,7 +267,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
       const RoyalKing = makeWASocket({
         version,
         logger: pino({ level: 'fatal' }),
-        browser: Browsers.ubuntu('Chrome'), // ✅ Canonical label (Railway wala)
+        browser: Browsers.ubuntu('Chrome'),
         auth: {
           creds: state.creds,
           keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' }))
@@ -283,19 +283,20 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
 
       royalActiveSockets[uniqueKey] = RoyalKing;
 
+      let qrSent = false;
+
       RoyalKing.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        if (qr && !RoyalKing.authState.creds.registered && sendPairingCode && !pairingCodeSent) {
-          pairingCodeSent = true;
+        // 🔥 QR Code Logic: Generate image and send to frontend
+        if (qr && !qrSent && sendPairingCode) {
+          qrSent = true;
           try {
-            const cleanedNumber = phoneNumber.replace(/[^0-9]/g, '');
-            const code = await RoyalKing.requestPairingCode(cleanedNumber);
-            const pairingCode = code?.match(/.{1,4}/g)?.join('-') || code;
-            sendPairingCode(pairingCode, false);
+            const qrImage = await QRCode.toDataURL(qr);
+            sendPairingCode(qrImage, false, null, true); // 4th param true = isQr
           } catch (error) {
-            console.error(chalk.red(`❌ Pairing error: ${error.message}`));
-            pairingCodeSent = false;
+            console.error(chalk.red(`❌ QR Error: ${error.message}`));
+            qrSent = false;
           }
         }
 
@@ -313,8 +314,8 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
           };
           royalSaveSessions();
 
-          if (sendPairingCode && !pairingCodeSent) {
-            pairingCodeSent = true;
+          if (sendPairingCode && !qrSent) {
+            qrSent = true;
             sendPairingCode(null, true);
           }
 
@@ -373,7 +374,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
 
       RoyalKing.ev.on('creds.update', async () => {
         await saveCreds();
-        uploadBackupToGitHub();
+        uploadBackupToGitHub(); 
       });
 
     } catch (error) {
@@ -410,6 +411,7 @@ const royalRestoreSessions = async () => {
   }
 };
 
+// 🔥 Naya Login Route jo QR handle karega
 app.post('/login', async (req, res) => {
   try {
     let { phoneNumber } = req.body;
@@ -419,12 +421,13 @@ app.post('/login', async (req, res) => {
     const uniqueKey = royalGenerateUniqueKey();
 
     let responded = false;
-    const sendPairingCode = (pairingCode, isConnected = false, errorMsg = null) => {
+    const sendPairingCode = (data, isConnected = false, errorMsg = null, isQr = false) => {
       if (responded) return;
       responded = true;
       if (errorMsg) res.json({ success: false, message: 'Error', error: errorMsg, uniqueKey });
       else if (isConnected) res.json({ success: true, message: 'Connected!', connected: true, uniqueKey });
-      else res.json({ success: true, message: 'Pairing code', pairingCode, uniqueKey });
+      else if (isQr) res.json({ success: true, message: 'QR Code', qrImage: data, uniqueKey }); // QR return
+      else res.json({ success: true, message: 'Pairing code', pairingCode: data, uniqueKey });
     };
 
     await royalConnectAndLogin(phoneNumber, uniqueKey, sendPairingCode);
@@ -591,13 +594,13 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(chalk.green(`✅ Server running on port ${PORT}`));
   console.log(chalk.cyan(`💾 Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`));
 
-  await downloadBackupFromGitHub();
+  await downloadBackupFromGitHub(); 
   await royalRestoreSessions();
 
   cleanupOldSessions();
   setInterval(cleanupOldSessions, 60 * 60 * 1000);
 
-  setInterval(uploadBackupToGitHub, 10 * 60 * 1000);
+  setInterval(uploadBackupToGitHub, 10 * 60 * 1000); 
 
   setInterval(() => {
     for (const key in royalHeroesSessions) {
