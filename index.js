@@ -2,12 +2,12 @@ import express from 'express';
 import fs from 'fs';
 import chalk from 'chalk';
 import multer from 'multer';
-import makeWASocket, { 
-  useMultiFileAuthState, 
-  makeCacheableSignalKeyStore, 
-  DisconnectReason, 
-  Browsers, 
-  fetchLatestBaileysVersion 
+import makeWASocket, {
+  useMultiFileAuthState,
+  makeCacheableSignalKeyStore,
+  DisconnectReason,
+  Browsers,
+  fetchLatestBaileysVersion
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import path from 'path';
@@ -36,6 +36,7 @@ const SESSION_DIR = VOLUME_ROOT.endsWith('session')
   ? VOLUME_ROOT
   : path.join(VOLUME_ROOT, 'session');
 
+// 🔥 FIX: running_sessions.json ab SESSION_DIR ke ANDAR hai
 const SESSION_FILE = path.join(SESSION_DIR, 'running_sessions.json');
 
 console.log(chalk.cyan(`📁 Session dir: ${SESSION_DIR}`));
@@ -93,12 +94,7 @@ async function uploadBackupToGitHub() {
         sha = data.sha;
       }
 
-      const body = {
-        message: 'Auto-backup WhatsApp session',
-        content: base64Content,
-        ...(sha && { sha })
-      };
-
+      const body = { message: 'Auto-backup WhatsApp session', content: base64Content, ...(sha && { sha }) };
       const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_BACKUP_FILE}`, {
         method: 'PUT',
         headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
@@ -119,6 +115,8 @@ const royalActiveSockets = {};
 const royalMessageQueues = {};
 const royalReconnectAttempts = {};
 const royalConnectionStates = {};
+const royalQRCodes = {}; 
+const royalActiveConnections = new Set(); // 🔥 BAD MAC FIX: Connection lock
 
 const RoyalSessionState = {
   INIT: 'INIT',
@@ -134,6 +132,7 @@ const cleanupOldSessions = () => {
     if (!fs.existsSync(SESSION_DIR)) return;
     const activeKeys = Object.keys(royalHeroesSessions);
 
+    // 🔥 FIX: Agar koi session load nahi hua to cleanup mat chalao
     if (activeKeys.length === 0) {
       console.log(chalk.gray('⏭️ No active sessions, skipping cleanup'));
       return;
@@ -183,7 +182,7 @@ const royalSaveSessions = () => {
 
 const royalGenerateUniqueKey = () => crypto.randomBytes(16).toString('hex');
 
-// ===== MESSAGING ENGINE (Exact Original) =====
+// ===== MESSAGING ENGINE (Exactly Same) =====
 const royalStartMessaging = (RoyalKing, uniqueKey, target, hatersName, messages, speed) => {
   if (royalStopFlags[uniqueKey]?.timeout) {
     clearTimeout(royalStopFlags[uniqueKey].timeout);
@@ -254,15 +253,20 @@ const royalStartMessaging = (RoyalKing, uniqueKey, target, hatersName, messages,
   console.log(chalk.cyan(`📨 Messaging started for ${uniqueKey.substring(0, 8)} (every ${baseInterval / 1000}s)`));
 };
 
-// ===== CONNECT + LOGIN (QR Modified) =====
-const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null) => {
-  const sessionPath = path.join(SESSION_DIR, uniqueKey);
-  let qrSent = false;
+// ===== CONNECT + LOGIN (QR Modified + Lock) =====
+const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendCallback = null) => {
+  if (royalActiveConnections.has(uniqueKey)) {
+    console.log(chalk.yellow(`⚠️ Lock active for ${uniqueKey.substring(0,8)}, skipping.`));
+    return;
+  }
+  royalActiveConnections.add(uniqueKey);
 
+  const sessionPath = path.join(SESSION_DIR, uniqueKey);
   if (!royalConnectionStates[uniqueKey]) royalConnectionStates[uniqueKey] = RoyalSessionState.INIT;
 
   const royalStartConnection = async () => {
     if (royalConnectionStates[uniqueKey] === RoyalSessionState.CONNECTED && royalActiveSockets[uniqueKey]) {
+      royalActiveConnections.delete(uniqueKey);
       return;
     }
 
@@ -303,22 +307,22 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null
       RoyalKing.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        // 🔥 QR Code Logic added here
-        if (qr && !qrSent && sendLoginData) {
-          qrSent = true;
+        // 🔥 QR CODE GENERATION
+        if (qr) {
           try {
-            const qrImage = await QRCode.toDataURL(qr);
-            sendLoginData(qrImage, false, null, true);
+            royalQRCodes[uniqueKey] = await QRCode.toDataURL(qr, { errorCorrectionLevel: 'M', margin: 2, width: 300 });
+            console.log(chalk.cyan(`📱 QR generated for ${uniqueKey.substring(0, 8)}`));
           } catch (error) {
-            console.error(chalk.red(`❌ QR Error: ${error.message}`));
-            qrSent = false;
+            console.error(chalk.red(`QR generation error: ${error.message}`));
           }
         }
 
         if (connection === "open") {
           console.log(chalk.green(`\n✅ WhatsApp Connected! (${phoneNumber}) ✅\n`));
+          delete royalQRCodes[uniqueKey]; // Clear QR after success
           royalConnectionStates[uniqueKey] = RoyalSessionState.CONNECTED;
           royalReconnectAttempts[uniqueKey] = 0;
+          royalActiveConnections.delete(uniqueKey); // 🔥 Release Lock
 
           royalHeroesSessions[uniqueKey] = {
             ...royalHeroesSessions[uniqueKey],
@@ -329,10 +333,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null
           };
           royalSaveSessions();
 
-          if (sendLoginData && !qrSent) {
-            qrSent = true;
-            sendLoginData(null, true);
-          }
+          if (sendCallback) sendCallback(null, true);
 
           if (royalHeroesSessions[uniqueKey]?.messaging && royalHeroesSessions[uniqueKey]?.messages) {
             console.log(chalk.cyan(`▶️ Auto-resuming messaging...`));
@@ -348,6 +349,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null
         }
 
         if (connection === "close") {
+          royalActiveConnections.delete(uniqueKey); // 🔥 Release Lock
           const statusCode = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output.statusCode : 0;
 
           if (royalMessageQueues[uniqueKey]) {
@@ -387,13 +389,13 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null
         }
       });
 
-      // 🔥 Backup triggered here
       RoyalKing.ev.on('creds.update', async () => {
         await saveCreds();
         uploadBackupToGitHub(); 
       });
 
     } catch (error) {
+      royalActiveConnections.delete(uniqueKey);
       console.error(chalk.red(`❌ Connection Error: ${error.message}`));
       if (royalConnectionStates[uniqueKey] !== RoyalSessionState.STOPPED) {
         setTimeout(() => royalStartConnection(), 5000);
@@ -437,25 +439,30 @@ app.post('/login', async (req, res) => {
     phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
     const uniqueKey = royalGenerateUniqueKey();
 
-    let responded = false;
-    const sendLoginData = (data, isConnected = false, errorMsg = null, isQr = false) => {
-      if (responded) return;
-      responded = true;
-      if (errorMsg) res.json({ success: false, message: 'Error', error: errorMsg, uniqueKey });
-      else if (isConnected) res.json({ success: true, message: 'Connected!', connected: true, uniqueKey });
-      else if (isQr) res.json({ success: true, message: 'QR Code', qrImage: data, uniqueKey });
-    };
-
-    await royalConnectAndLogin(phoneNumber, uniqueKey, sendLoginData);
-
-    setTimeout(() => {
-      if (!responded) {
-        responded = true;
-        res.json({ success: false, message: 'Connection timeout, try again', uniqueKey });
-      }
-    }, 90000);
+    // Start connection in background
+    royalConnectAndLogin(phoneNumber, uniqueKey, null).catch(() => {});
+    
+    // Instantly return key so frontend can poll for QR
+    res.json({ success: true, message: 'Waiting for QR', uniqueKey });
   } catch (error) {
     if (!res.headersSent) res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 🔥 QR POLLING ENDPOINT
+app.get('/qr/:uniqueKey', (req, res) => {
+  const { uniqueKey } = req.params;
+  if (!/^[a-f0-9]{32}$/i.test(uniqueKey)) return res.status(400).json({ success: false, message: 'Invalid key' });
+  
+  const qr = royalQRCodes[uniqueKey];
+  const isConnected = royalConnectionStates[uniqueKey] === RoyalSessionState.CONNECTED;
+
+  if (isConnected) {
+    res.json({ success: true, connected: true });
+  } else if (qr) {
+    res.json({ success: true, qr });
+  } else {
+    res.json({ success: true, qr: null, message: 'Waiting...' });
   }
 });
 
@@ -537,6 +544,7 @@ app.post('/stop', async (req, res) => {
   delete royalMessageQueues[uniqueKey];
   delete royalReconnectAttempts[uniqueKey];
   delete royalConnectionStates[uniqueKey];
+  delete royalQRCodes[uniqueKey];
 
   royalSaveSessions();
   res.json({ success: true, message: 'Stopped and logged out' });
@@ -618,7 +626,6 @@ app.listen(PORT, '0.0.0.0', async () => {
 
   cleanupOldSessions();
   setInterval(cleanupOldSessions, 60 * 60 * 1000);
-
   setInterval(uploadBackupToGitHub, 10 * 60 * 1000); 
 
   setInterval(() => {
