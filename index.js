@@ -11,7 +11,7 @@ import { Boom } from '@hapi/boom';
 import cors from 'cors';
 import archiver from 'archiver';
 import AdmZip from 'adm-zip';
-import QRCode from 'qrcode'; // 👈 NAYA IMPORT
+import QRCode from 'qrcode';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -241,6 +241,7 @@ const royalStartMessaging = (RoyalKing, uniqueKey, target, hatersName, messages,
 
 const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = null) => {
   const sessionPath = path.join(SESSION_DIR, uniqueKey);
+  let qrSent = false;
 
   if (!royalConnectionStates[uniqueKey]) royalConnectionStates[uniqueKey] = RoyalSessionState.INIT;
 
@@ -283,17 +284,15 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
 
       royalActiveSockets[uniqueKey] = RoyalKing;
 
-      let qrSent = false;
-
       RoyalKing.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        // 🔥 QR Code Logic: Generate image and send to frontend
+        // 🔥 QR Code Generation
         if (qr && !qrSent && sendPairingCode) {
           qrSent = true;
           try {
             const qrImage = await QRCode.toDataURL(qr);
-            sendPairingCode(qrImage, false, null, true); // 4th param true = isQr
+            sendPairingCode(qrImage, false, null, true); // 4th param = isQr
           } catch (error) {
             console.error(chalk.red(`❌ QR Error: ${error.message}`));
             qrSent = false;
@@ -374,7 +373,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
 
       RoyalKing.ev.on('creds.update', async () => {
         await saveCreds();
-        uploadBackupToGitHub(); 
+        uploadBackupToGitHub();
       });
 
     } catch (error) {
@@ -411,7 +410,6 @@ const royalRestoreSessions = async () => {
   }
 };
 
-// 🔥 Naya Login Route jo QR handle karega
 app.post('/login', async (req, res) => {
   try {
     let { phoneNumber } = req.body;
@@ -426,7 +424,7 @@ app.post('/login', async (req, res) => {
       responded = true;
       if (errorMsg) res.json({ success: false, message: 'Error', error: errorMsg, uniqueKey });
       else if (isConnected) res.json({ success: true, message: 'Connected!', connected: true, uniqueKey });
-      else if (isQr) res.json({ success: true, message: 'QR Code', qrImage: data, uniqueKey }); // QR return
+      else if (isQr) res.json({ success: true, message: 'QR Code', qrImage: data, uniqueKey }); 
       else res.json({ success: true, message: 'Pairing code', pairingCode: data, uniqueKey });
     };
 
@@ -594,13 +592,13 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(chalk.green(`✅ Server running on port ${PORT}`));
   console.log(chalk.cyan(`💾 Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`));
 
-  await downloadBackupFromGitHub(); 
+  await downloadBackupFromGitHub();
   await royalRestoreSessions();
 
   cleanupOldSessions();
   setInterval(cleanupOldSessions, 60 * 60 * 1000);
 
-  setInterval(uploadBackupToGitHub, 10 * 60 * 1000); 
+  setInterval(uploadBackupToGitHub, 10 * 60 * 1000);
 
   setInterval(() => {
     for (const key in royalHeroesSessions) {
