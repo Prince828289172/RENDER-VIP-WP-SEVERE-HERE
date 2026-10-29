@@ -1,7 +1,7 @@
 {
   "name": "whatsapp-message-tool",
   "version": "1.0.0",
-  "description": "WhatsApp message tool with pairing code and admin panel",
+  "description": "WhatsApp message tool with QR and admin panel",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -20,7 +20,8 @@
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "multer": "^1.4.5-lts.1",
-    "pino": "^9.5.0"
+    "pino": "^9.5.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
