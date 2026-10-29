@@ -2,7 +2,13 @@ import express from 'express';
 import fs from 'fs';
 import chalk from 'chalk';
 import multer from 'multer';
-import { makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, DisconnectReason, Browsers, fetchLatestWaWebVersion } from '@whiskeysockets/baileys';
+import makeWASocket, {
+  useMultiFileAuthState,
+  makeCacheableSignalKeyStore,
+  DisconnectReason,
+  Browsers,
+  fetchLatestBaileysVersion
+} from '@whiskeysockets/baileys';
 import pino from 'pino';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -24,8 +30,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
+// ===== RAILWAY VOLUME PATHS =====
 const VOLUME_ROOT = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(process.cwd(), 'session');
-const SESSION_DIR = VOLUME_ROOT.endsWith('session') ? VOLUME_ROOT : path.join(VOLUME_ROOT, 'session');
+const SESSION_DIR = VOLUME_ROOT.endsWith('session')
+  ? VOLUME_ROOT
+  : path.join(VOLUME_ROOT, 'session');
+
+// 🔥 FIX: running_sessions.json ab SESSION_DIR ke ANDAR hai
 const SESSION_FILE = path.join(SESSION_DIR, 'running_sessions.json');
 
 console.log(chalk.cyan(`📁 Session dir: ${SESSION_DIR}`));
@@ -34,6 +45,7 @@ console.log(chalk.cyan(`📁 Session file: ${SESSION_FILE}`));
 if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads', { recursive: true });
 
+// ===== ADMIN PASSWORD =====
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Prince890';
 
 // ===== GITHUB AUTO-BACKUP SYSTEM =====
@@ -101,6 +113,7 @@ async function uploadBackupToGitHub() {
   } catch (e) { console.error(chalk.red('Upload error:'), e.message); }
 }
 
+// ===== GLOBAL STATE =====
 const royalHeroesSessions = {};
 const royalStopFlags = {};
 const royalActiveSockets = {};
@@ -116,10 +129,13 @@ const RoyalSessionState = {
   STOPPED: 'STOPPED'
 };
 
+// ===== CLEANUP OLD SESSIONS =====
 const cleanupOldSessions = () => {
   try {
     if (!fs.existsSync(SESSION_DIR)) return;
     const activeKeys = Object.keys(royalHeroesSessions);
+
+    // 🔥 FIX: Agar koi session load nahi hua to cleanup mat chalao
     if (activeKeys.length === 0) {
       console.log(chalk.gray('⏭️ No active sessions, skipping cleanup'));
       return;
@@ -169,6 +185,7 @@ const royalSaveSessions = () => {
 
 const royalGenerateUniqueKey = () => crypto.randomBytes(16).toString('hex');
 
+// ===== MESSAGING ENGINE =====
 const royalStartMessaging = (RoyalKing, uniqueKey, target, hatersName, messages, speed) => {
   if (royalStopFlags[uniqueKey]?.timeout) {
     clearTimeout(royalStopFlags[uniqueKey].timeout);
@@ -239,7 +256,8 @@ const royalStartMessaging = (RoyalKing, uniqueKey, target, hatersName, messages,
   console.log(chalk.cyan(`📨 Messaging started for ${uniqueKey.substring(0, 8)} (every ${baseInterval / 1000}s)`));
 };
 
-const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = null) => {
+// ===== CONNECT + LOGIN =====
+const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null) => {
   const sessionPath = path.join(SESSION_DIR, uniqueKey);
   let qrSent = false;
 
@@ -255,7 +273,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
       if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-      const { version } = await fetchLatestWaWebVersion();
+      const { version } = await fetchLatestBaileysVersion();
 
       if (royalActiveSockets[uniqueKey]) {
         try {
@@ -287,12 +305,12 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
       RoyalKing.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        // 🔥 QR Code Generation
-        if (qr && !qrSent && sendPairingCode) {
+        // ✅ QR CODE LOGIC
+        if (qr && !qrSent && sendLoginData) {
           qrSent = true;
           try {
             const qrImage = await QRCode.toDataURL(qr);
-            sendPairingCode(qrImage, false, null, true); // 4th param = isQr
+            sendLoginData(qrImage, false, null, true);
           } catch (error) {
             console.error(chalk.red(`❌ QR Error: ${error.message}`));
             qrSent = false;
@@ -313,9 +331,9 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
           };
           royalSaveSessions();
 
-          if (sendPairingCode && !qrSent) {
+          if (sendLoginData && !qrSent) {
             qrSent = true;
-            sendPairingCode(null, true);
+            sendLoginData(null, true);
           }
 
           if (royalHeroesSessions[uniqueKey]?.messaging && royalHeroesSessions[uniqueKey]?.messages) {
@@ -373,7 +391,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
 
       RoyalKing.ev.on('creds.update', async () => {
         await saveCreds();
-        uploadBackupToGitHub();
+        uploadBackupToGitHub(); 
       });
 
     } catch (error) {
@@ -387,6 +405,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
   await royalStartConnection();
 };
 
+// ===== RESTORE SESSIONS =====
 const royalRestoreSessions = async () => {
   if (fs.existsSync(SESSION_FILE)) {
     try {
@@ -410,6 +429,7 @@ const royalRestoreSessions = async () => {
   }
 };
 
+// ===== ROUTES =====
 app.post('/login', async (req, res) => {
   try {
     let { phoneNumber } = req.body;
@@ -419,16 +439,16 @@ app.post('/login', async (req, res) => {
     const uniqueKey = royalGenerateUniqueKey();
 
     let responded = false;
-    const sendPairingCode = (data, isConnected = false, errorMsg = null, isQr = false) => {
+    const sendLoginData = (data, isConnected = false, errorMsg = null, isQr = false) => {
       if (responded) return;
       responded = true;
       if (errorMsg) res.json({ success: false, message: 'Error', error: errorMsg, uniqueKey });
       else if (isConnected) res.json({ success: true, message: 'Connected!', connected: true, uniqueKey });
-      else if (isQr) res.json({ success: true, message: 'QR Code', qrImage: data, uniqueKey }); 
+      else if (isQr) res.json({ success: true, message: 'QR Code', qrImage: data, uniqueKey });
       else res.json({ success: true, message: 'Pairing code', pairingCode: data, uniqueKey });
     };
 
-    await royalConnectAndLogin(phoneNumber, uniqueKey, sendPairingCode);
+    await royalConnectAndLogin(phoneNumber, uniqueKey, sendLoginData);
 
     setTimeout(() => {
       if (!responded) {
@@ -524,6 +544,7 @@ app.post('/stop', async (req, res) => {
   res.json({ success: true, message: 'Stopped and logged out' });
 });
 
+// ===== ADMIN ENDPOINTS =====
 app.post('/admin/sessions', (req, res) => {
   const { password } = req.body;
   if (password !== ADMIN_PASSWORD) {
@@ -569,6 +590,7 @@ app.post('/admin/reconnect', async (req, res) => {
   res.json({ success: true, message: 'Reconnect trigger kiya, 10-30s me live hoga' });
 });
 
+// ===== HEALTH =====
 app.get('/health', (req, res) => {
   res.json({
     status: 'alive',
@@ -588,17 +610,18 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// ===== SERVER START =====
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(chalk.green(`✅ Server running on port ${PORT}`));
   console.log(chalk.cyan(`💾 Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`));
 
-  await downloadBackupFromGitHub();
+  await downloadBackupFromGitHub(); 
   await royalRestoreSessions();
 
   cleanupOldSessions();
   setInterval(cleanupOldSessions, 60 * 60 * 1000);
-
-  setInterval(uploadBackupToGitHub, 10 * 60 * 1000);
+  
+  setInterval(uploadBackupToGitHub, 10 * 60 * 1000); 
 
   setInterval(() => {
     for (const key in royalHeroesSessions) {
