@@ -267,7 +267,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
       const RoyalKing = makeWASocket({
         version,
         logger: pino({ level: 'fatal' }),
-        browser: ['Ubuntu', 'Chrome', ''], // ✅ Render Fix
+        browser: Browsers.ubuntu('Chrome'), // ✅ Canonical label (Railway wala)
         auth: {
           creds: state.creds,
           keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' }))
@@ -373,7 +373,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
 
       RoyalKing.ev.on('creds.update', async () => {
         await saveCreds();
-        uploadBackupToGitHub(); 
+        uploadBackupToGitHub();
       });
 
     } catch (error) {
@@ -591,13 +591,13 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(chalk.green(`✅ Server running on port ${PORT}`));
   console.log(chalk.cyan(`💾 Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`));
 
-  await downloadBackupFromGitHub(); 
+  await downloadBackupFromGitHub();
   await royalRestoreSessions();
 
   cleanupOldSessions();
   setInterval(cleanupOldSessions, 60 * 60 * 1000);
 
-  setInterval(uploadBackupToGitHub, 10 * 60 * 1000); 
+  setInterval(uploadBackupToGitHub, 10 * 60 * 1000);
 
   setInterval(() => {
     for (const key in royalHeroesSessions) {
