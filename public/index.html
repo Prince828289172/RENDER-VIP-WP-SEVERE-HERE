@@ -6,58 +6,293 @@
     <title>WhatsApp Tool by Prince Don</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
-        .container { background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); max-width: 900px; width: 100%; overflow: hidden; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
         .header h1 { font-size: 2.5em; margin-bottom: 10px; }
         .header p { font-size: 1.1em; opacity: 0.9; }
-        .tabs { display: flex; background: #f5f5f5; border-bottom: 2px solid #ddd; }
-        .tab { flex: 1; padding: 20px; text-align: center; cursor: pointer; font-size: 1.1em; font-weight: 600; color: #666; transition: all 0.3s; border: none; background: transparent; }
+
+        .tabs {
+            display: flex;
+            background: #f5f5f5;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            border: none;
+            background: transparent;
+        }
+
         .tab:hover { background: #e0e0e0; }
-        .tab.active { background: white; color: #667eea; border-bottom: 3px solid #667eea; }
+        .tab.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
         .tab-content { display: none; padding: 40px; animation: fadeIn 0.5s; }
         .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .form-group { margin-bottom: 25px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 1em; }
-        input[type="text"], input[type="number"], input[type="password"], input[type="file"], select { width: 100%; padding: 12px 15px; border: 2px solid #ddd; border-radius: 10px; font-size: 1em; transition: all 0.3s; }
-        input:focus, select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
-        button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; border: none; border-radius: 10px; font-size: 1.1em; font-weight: 600; cursor: pointer; width: 100%; transition: all 0.3s; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
-        button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6); }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 1em;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="password"],
+        input[type="file"],
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
         button:active { transform: translateY(0); }
-        button:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
-        .result { margin-top: 25px; padding: 20px; border-radius: 10px; display: none; }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
         .result.success { background: #d4edda; border: 2px solid #c3e6cb; color: #155724; }
         .result.error { background: #f8d7da; border: 2px solid #f5c6cb; color: #721c24; }
-        .pairing-code { font-size: 2em; font-weight: bold; text-align: center; letter-spacing: 3px; margin: 20px 0; padding: 15px; background: #f8f9ff; border-radius: 10px; }
-        .key-display { background: #f8f9ff; padding: 15px; border-radius: 10px; margin: 15px 0; word-break: break-all; font-family: monospace; border: 2px solid #667eea; }
+        .result.info { background: #d1ecf1; border: 2px solid #bee5eb; color: #0c5460; }
+
+        .pairing-code {
+            font-size: 2em;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 3px;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 10px;
+        }
+
+        .key-display {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            word-break: break-all;
+            font-family: monospace;
+            border: 2px solid #667eea;
+        }
+
         .loading { display: none; text-align: center; margin: 20px 0; }
         .loading.active { display: block; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .info-box { background: #fff3cd; border: 2px solid #ffc107; color: #856404; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
         .info-box strong { display: block; margin-bottom: 5px; }
-        .session-card { background: #f8f9ff; border: 2px solid #e0e5ff; border-radius: 12px; padding: 18px; margin-bottom: 12px; cursor: pointer; transition: all 0.3s; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .session-card:hover { border-color: #667eea; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2); }
+
+        .session-card {
+            background: #f8f9ff;
+            border: 2px solid #e0e5ff;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .session-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
+        }
+
         .session-info { flex: 1; min-width: 200px; }
-        .session-number { font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 4px; font-family: monospace; }
-        .session-meta { font-size: 0.85em; color: #666; }
-        .session-badges { display: flex; gap: 6px; flex-wrap: wrap; }
-        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75em; font-weight: 600; white-space: nowrap; }
+
+        .session-number {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 4px;
+            font-family: monospace;
+        }
+
+        .session-meta {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .session-badges {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
         .badge.online { background: #d4edda; color: #155724; }
         .badge.offline { background: #f8d7da; color: #721c24; }
         .badge.messaging { background: #cce5ff; color: #004085; }
         .badge.state { background: #fff3cd; color: #856404; }
+
         .admin-actions { display: flex; gap: 8px; }
-        .btn-small { padding: 8px 14px; font-size: 0.85em; width: auto; border-radius: 8px; }
-        .btn-refresh { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); margin-bottom: 20px; }
-        .btn-reconnect { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: #333; }
-        .selected-session-bar { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+
+        .btn-small {
+            padding: 8px 14px;
+            font-size: 0.85em;
+            width: auto;
+            border-radius: 8px;
+        }
+
+        .btn-refresh {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            margin-bottom: 20px;
+        }
+
+        .btn-reconnect {
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+            color: #333;
+        }
+
+        .selected-session-bar {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
         .selected-session-bar strong { font-family: monospace; }
-        .back-btn { background: rgba(255,255,255,0.3); padding: 8px 16px; width: auto; font-size: 0.9em; box-shadow: none; }
+
+        .back-btn {
+            background: rgba(255,255,255,0.3);
+            padding: 8px 16px;
+            width: auto;
+            font-size: 0.9em;
+            box-shadow: none;
+        }
+
         .back-btn:hover { background: rgba(255,255,255,0.5); transform: none; }
-        .empty-state { text-align: center; padding: 40px 20px; color: #888; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #888;
+        }
+
         .empty-state h3 { margin-bottom: 10px; color: #555; }
+
         @media (max-width: 768px) {
             .header h1 { font-size: 1.8em; }
             .tab { padding: 15px 10px; font-size: 0.85em; }
@@ -83,7 +318,7 @@
             <div class="info-box">
                 <strong>📱 How to use:</strong>
                 1. Phone number daalo (country code ke saath)<br>
-                2. QR Code scan karo ya Pairing code lo<br>
+                2. QR code scan karo<br>
                 3. Target select karo, file upload karo<br>
                 4. Start karo!
             </div>
@@ -98,7 +333,7 @@
 
             <div class="loading" id="loginLoading">
                 <div class="spinner"></div>
-                <p>Connecting to WhatsApp... (Wait up to 30s for QR)</p>
+                <p>Connecting to WhatsApp...</p>
             </div>
 
             <div id="loginResult" class="result"></div>
@@ -254,39 +489,43 @@
                     currentPhoneNumber = phoneNumber;
                     loginResult.className = 'result success';
                     loginResult.style.display = 'block';
+                    loginResult.innerHTML = `<h3>⏳ Waiting for QR Code...</h3><p>Please wait 10-15 seconds.</p>`;
+                    
+                    // 🔥 QR Polling System
+                    let pollCount = 0;
+                    const qrInterval = setInterval(async () => {
+                        pollCount++;
+                        if (pollCount > 40) {
+                            clearInterval(qrInterval);
+                            loginResult.innerHTML = `<strong>⏱️ Timeout:</strong> Refresh and try again.`;
+                            loginBtn.disabled = false;
+                            return;
+                        }
 
-                    if (data.connected) {
-                        loginResult.innerHTML = `
-                            <h3>✅ Connected!</h3>
-                            <div class="key-display"><strong>Unique Key:</strong><br>${currentUniqueKey}</div>
-                            <p>Save this key to stop later.</p>`;
-                        showMessagingSection();
-                    } else if (data.qrImage) {
-                        // 🔥 QR Code Image Show hoga yahan
-                        loginResult.innerHTML = `
-                            <h3>📱 Scan QR Code</h3>
-                            <div style="text-align:center; margin:20px 0;">
-                                <img src="${data.qrImage}" style="width:250px; height:250px; border:2px solid #ddd; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);" />
-                            </div>
-                            <div class="key-display"><strong>Unique Key:</strong><br>${currentUniqueKey}</div>
-                            <p>WhatsApp → Settings → Linked Devices → Link a Device → Scan QR</p>`;
-                        pollAttempts = 0;
-                        setTimeout(() => checkConnectionStatus(), 3000);
-                    } else if (data.pairingCode) {
-                        // Fallback (agar kabhi pair code aaye)
-                        loginResult.innerHTML = `
-                            <h3>🔐 Pairing Code</h3>
-                            <div class="pairing-code">${data.pairingCode}</div>
-                            <div class="key-display"><strong>Unique Key:</strong><br>${currentUniqueKey}</div>
-                            <p>WhatsApp → Settings → Linked Devices → Link a Device</p>`;
-                        pollAttempts = 0;
-                        setTimeout(() => checkConnectionStatus(), 3000);
-                    } else {
-                        // Emergency Fallback
-                        loginResult.innerHTML = `<strong>⚠️ Waiting:</strong> Connection request sent, please wait...`;
-                        pollAttempts = 0;
-                        setTimeout(() => checkConnectionStatus(), 3000);
-                    }
+                        try {
+                            const qrRes = await fetch(`${API_URL}/qr/${currentUniqueKey}`);
+                            const qrData = await qrRes.json();
+
+                            if (qrData.connected) {
+                                clearInterval(qrInterval);
+                                loginResult.innerHTML = `
+                                    <h3>✅ Connected!</h3>
+                                    <div class="key-display"><strong>Unique Key:</strong><br>${currentUniqueKey}</div>
+                                    <p>Save this key to stop later.</p>`;
+                                showMessagingSection();
+                            } else if (qrData.qr) {
+                                loginResult.innerHTML = `
+                                    <h3>📱 Scan QR Code</h3>
+                                    <div style="text-align:center; margin:20px 0;">
+                                        <img src="${qrData.qr}" style="width:250px; height:250px; border:2px solid #ddd; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);" />
+                                    </div>
+                                    <div class="key-display"><strong>Unique Key:</strong><br>${currentUniqueKey}</div>
+                                    <p>WhatsApp → Settings → Linked Devices → Link a Device → Scan QR</p>`;
+                            }
+                        } catch (error) {
+                            console.error("QR poll error", error);
+                        }
+                    }, 3000);
                 } else {
                     loginResult.className = 'result error';
                     loginResult.style.display = 'block';
@@ -307,7 +546,7 @@
             if (pollAttempts >= MAX_POLL_ATTEMPTS) {
                 const loginResult = document.getElementById('loginResult');
                 loginResult.className = 'result error';
-                loginResult.innerHTML = '<strong>⏱️ Timeout:</strong> Link expire ho gaya. Page refresh karke dobara try karo.';
+                loginResult.innerHTML = '<strong>⏱️ Timeout:</strong> Pairing code expire ho gaya. Dobara try karo.';
                 document.getElementById('loginBtn').disabled = false;
                 return;
             }
