@@ -267,7 +267,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
       const RoyalKing = makeWASocket({
         version,
         logger: pino({ level: 'fatal' }),
-        browser: ['Ubuntu', 'Chrome', ''], // ✅ canonical browser label (Fix #1)
+        browser: ['Ubuntu', 'Chrome', ''], // ✅ Render Fix
         auth: {
           creds: state.creds,
           keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' }))
@@ -283,12 +283,9 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
 
       royalActiveSockets[uniqueKey] = RoyalKing;
 
-      // ❌ Purana block hata diya (jo socket banne ke 3s baad code maangta tha)
-
       RoyalKing.ev.on("connection.update", async (update) => {
-        const { connection, lastDisconnect, qr } = update; // ✅ qr event destructure kiya (Fix #2)
+        const { connection, lastDisconnect, qr } = update;
 
-        // ✅ Naya block: sirf qr event par pairing code request karo
         if (qr && !RoyalKing.authState.creds.registered && sendPairingCode && !pairingCodeSent) {
           pairingCodeSent = true;
           try {
@@ -298,7 +295,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendPairingCode = nu
             sendPairingCode(pairingCode, false);
           } catch (error) {
             console.error(chalk.red(`❌ Pairing error: ${error.message}`));
-            pairingCodeSent = false; // fail hone par dobara try karne de
+            pairingCodeSent = false;
           }
         }
 
