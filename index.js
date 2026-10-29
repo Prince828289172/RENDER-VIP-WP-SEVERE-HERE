@@ -2,13 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import chalk from 'chalk';
 import multer from 'multer';
-import makeWASocket, {
-  useMultiFileAuthState,
-  makeCacheableSignalKeyStore,
-  DisconnectReason,
-  Browsers,
-  fetchLatestBaileysVersion
-} from '@whiskeysockets/baileys';
+import { makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, DisconnectReason, Browsers, fetchLatestWaWebVersion } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -135,7 +129,6 @@ const cleanupOldSessions = () => {
     if (!fs.existsSync(SESSION_DIR)) return;
     const activeKeys = Object.keys(royalHeroesSessions);
 
-    // 🔥 FIX: Agar koi session load nahi hua to cleanup mat chalao
     if (activeKeys.length === 0) {
       console.log(chalk.gray('⏭️ No active sessions, skipping cleanup'));
       return;
@@ -273,7 +266,8 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null
       if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-      const { version } = await fetchLatestBaileysVersion();
+      // 🔥 FIX: WaWeb version for Render
+      const { version } = await fetchLatestWaWebVersion();
 
       if (royalActiveSockets[uniqueKey]) {
         try {
@@ -286,7 +280,7 @@ const royalConnectAndLogin = async (phoneNumber, uniqueKey, sendLoginData = null
       const RoyalKing = makeWASocket({
         version,
         logger: pino({ level: 'fatal' }),
-        browser: Browsers.ubuntu('Chrome'),
+        browser: ['Ubuntu', 'Chrome', ''], // 🔥 FIX: Canonical Browser Label
         auth: {
           creds: state.creds,
           keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' }))
