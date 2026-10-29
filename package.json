@@ -8,7 +8,12 @@
     "start": "node --expose-gc index.js",
     "dev": "nodemon --expose-gc index.js"
   },
-  "keywords": ["whatsapp", "automation", "baileys", "messaging"],
+  "keywords": [
+    "whatsapp",
+    "automation",
+    "baileys",
+    "messaging"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
